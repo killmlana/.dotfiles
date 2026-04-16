@@ -1,0 +1,4 @@
+#!/bin/bash
+pos=$(playerctl -p spotify,%any position 2>/dev/null)
+[ -z "$pos" ] && echo "0" && exit
+printf "%.0f\n" "$pos"

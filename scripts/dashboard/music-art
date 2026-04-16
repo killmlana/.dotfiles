@@ -1,0 +1,17 @@
+#!/bin/bash
+art=$(playerctl -p spotify,%any metadata mpris:artUrl 2>/dev/null)
+if [ -n "$art" ]; then
+    # Convert spotify URL to local cache path
+    if [[ "$art" == https://i.scdn.co/* ]]; then
+        hash=$(echo "$art" | md5sum | cut -d' ' -f1)
+        cache="/tmp/eww-art-$hash.jpg"
+        [ -f "$cache" ] || curl -s "$art" -o "$cache" 2>/dev/null
+        echo "$cache"
+    elif [[ "$art" == file://* ]]; then
+        echo "${art#file://}"
+    else
+        echo ""
+    fi
+else
+    echo ""
+fi

@@ -1,0 +1,23 @@
+#!/bin/bash
+iface="br0"
+rx1=$(cat /sys/class/net/$iface/statistics/rx_bytes 2>/dev/null || echo 0)
+tx1=$(cat /sys/class/net/$iface/statistics/tx_bytes 2>/dev/null || echo 0)
+sleep 1
+rx2=$(cat /sys/class/net/$iface/statistics/rx_bytes 2>/dev/null || echo 0)
+tx2=$(cat /sys/class/net/$iface/statistics/tx_bytes 2>/dev/null || echo 0)
+
+down=$(( (rx2 - rx1) / 1024 ))
+up=$(( (tx2 - tx1) / 1024 ))
+
+if [ $down -gt 1024 ]; then
+    printf "%d.%d mbps" $((down/1024)) $(((down%1024)*10/1024))
+else
+    printf "%d kbps" $down
+fi
+echo -n "|"
+if [ $up -gt 1024 ]; then
+    printf "%d.%d mbps" $((up/1024)) $(((up%1024)*10/1024))
+else
+    printf "%d kbps" $up
+fi
+echo

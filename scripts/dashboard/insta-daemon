@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""Real-time Instagram DM daemon via headless Brave CDP + MutationObserver."""
+import json, time, os, sys, signal, re, threading
+import websocket
+import urllib.request
+
+CDP_PORT = 9333
+THREAD_URL = "https://www.instagram.com/direct/t/YOUR_THREAD_ID/"
+DM_FILE = "/tmp/eww-insta-dms.json"
+PID_FILE = "/tmp/eww-insta-daemon.pid"
+EWW = "eww -c ~/.config/eww"
+
+SKIP = {"Primary", "General", "Requests", "Your note", "Message...",
+        "YOUR_PARTNER_USERNAME", "YOUR_INSTAGRAM_USERNAME", "Typing...", "Typing", "Active now", "Send message",
+        "Turn on", "Turn On", "Not Now", "My Precious"}
+
+running = True
+prev_her_texts = []
+
+def sig_handler(s, f):
+    global running
+    running = False
+signal.signal(signal.SIGTERM, sig_handler)
+signal.signal(signal.SIGINT, sig_handler)
+
+# Kill all existing instances
+import subprocess
+my_pid = os.getpid()
+try:
+    out = subprocess.check_output(["pgrep", "-f", "insta-daemon"]).decode().strip()
+    for pid in out.split("\n"):
+        pid = int(pid.strip())
+        if pid != my_pid:
+            os.kill(pid, signal.SIGKILL)
+    time.sleep(0.5)
+except: pass
+with open(PID_FILE, "w") as f:
+    f.write(str(my_pid))
+
+def get_ws_url():
+    data = urllib.request.urlopen(f"http://localhost:{CDP_PORT}/json").read()
+    for t in json.loads(data):
+        if t["type"] == "page":
+            return t["webSocketDebuggerUrl"]
+    return None
+
+msg_id = 0
+pending = {}
+
+def cdp_send(ws, method, params=None):
+    global msg_id
+    msg_id += 1
+    m = {"id": msg_id, "method": method}
+    if params: m["params"] = params
+    ws.send(json.dumps(m))
+    return msg_id
+
+def cdp_wait(ws, id, timeout=10):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            ws.settimeout(1)
+            raw = ws.recv()
+            resp = json.loads(raw)
+            if resp.get("id") == id:
+                return resp
+            # Store events
+            method = resp.get("method", "")
+            if method == "Runtime.consoleAPICalled":
+                args = resp.get("params", {}).get("args", [])
+                if args and args[0].get("value", "").startswith("EWW_DM_UPDATE:"):
+                    handle_dm_update(args[0]["value"])
+        except websocket.WebSocketTimeoutException:
+            continue
+    return None
+
+def extract_and_format(raw_json):
+    """Parse the DOM extraction result into formatted messages."""
+    try:
+        raw = json.loads(raw_json)
+    except:
+        return []
+
+    msgs = []
+    for m in raw:
+        text = m.get("t", "")
+        bg = m.get("b", "")
+
+        if text in SKIP or len(text) > 150 or len(text) < 1:
+            continue
+        if text.startswith("Seen ") or text.startswith("m^") or text.startswith("Typing") or "My Precious" in text or "replied to" in text:
+            continue
+        if text.startswith("You: ") or text.startswith("You "):
+            continue
+
+        skip_phrases = ["sent a reel", "sent a photo", "sent an image", "shared a reel",
+                        "shared a post", "sent a video", "sent a voice", "sent an attachment",
+                        "liked a message", "reel by", "photo by", "video by",
+                        "sent attachment", "reacted to", "new messages"]
+        if any(p in text.lower() for p in skip_phrases):
+            continue
+        if re.match(r'^\d{1,2}:\d{2}\s*(AM|PM)$', text):  # timestamps like "1:46 PM"
+            continue
+
+        nums = re.findall(r'\d+', bg)
+        if len(nums) >= 3:
+            r, g, b = int(nums[0]), int(nums[1]), int(nums[2])
+            if b > 150:
+                sender = "you"   # bright blue bubble rgb(74,93,249)
+            elif b > r + 2 and r < 50:
+                sender = "her"   # dark gray-blue bubble rgb(37,41,46) where b > r
+            else:
+                sender = "?"     # pure gray rgb(38,38,38) = timestamp/UI, or other
+        else:
+            sender = "?"
+
+        # Skip short single words only if they have no chat bubble (sidebar names)
+        if sender == "?":
+            continue
+        msgs.append({"sender": sender, "text": text})
+
+    return msgs
+
+def format_for_eww(msgs):
+    result = []
+    for m in msgs[-6:]:
+        prefix = "<you>" if m["sender"] == "you" else "<her>"
+        text = m["text"]
+        words = text.split()
+        line = ""
+        first = True
+        for word in words:
+            if len(word) > 21:
+                word = word[:18] + "..."
+            if line and len(line) + 1 + len(word) > 21:
+                result.append((prefix if first else "     ") + " " + line)
+                first = False
+                line = word
+            else:
+                line = ((line + " " + word) if line else word)
+        if line:
+            result.append((prefix if first else "     ") + " " + line)
+    return result
+
+def save_and_notify(msgs):
+    global prev_her_texts
+    result = format_for_eww(msgs)
+
+    with open(DM_FILE, "w") as f:
+        json.dump(result, f)
+
+    # Update eww variable directly
+    escaped = json.dumps(result).replace("'", "'\\''")
+    os.system(f"{EWW} update insta-dms='{escaped}'")
+
+    # Notify only when she sends a NEW message (not when your messages shift the list)
+    cur_her = [m["text"] for m in msgs if m["sender"] == "her"]
+    new_from_her = [t for t in cur_her if t not in prev_her_texts]
+    if new_from_her and prev_her_texts:
+        msg = new_from_her[-1][:60].replace('"', '').replace("'", "")
+        os.system(f'''bash -c 'action=$(notify-send -u critical -A "open=Open Chat" "YOUR_PARTNER_USERNAME" "{msg}" --wait); [ "$action" = "open" ] && xdg-open "https://www.instagram.com/direct/t/YOUR_THREAD_ID/" && echo "click brave-browser" > /tmp/eww-taskbar' &''')
+    prev_her_texts = cur_her
+
+def handle_dm_update(console_msg):
+    """Called when the MutationObserver fires via console.log."""
+    raw = console_msg.replace("EWW_DM_UPDATE:", "", 1)
+    msgs = extract_and_format(raw)
+    if msgs:
+        save_and_notify(msgs)
+
+# Extraction JS
+EXTRACT_JS = """(function() {
+    var r = [];
+    document.querySelectorAll('span[dir="auto"]').forEach(function(s) {
+        var t = s.textContent.trim();
+        if (!t) return;
+        var p = s; var bg = '';
+        for (var i = 0; i < 10; i++) {
+            p = p.parentElement;
+            if (!p) break;
+            var c = getComputedStyle(p).backgroundColor;
+            if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') { bg = c; break; }
+        }
+        r.push(JSON.stringify({t: t, b: bg}));
+    });
+    return '[' + r.join(',') + ']';
+})()"""
+
+# MutationObserver JS - watches for DOM changes and logs extraction result
+OBSERVER_JS = """(function() {
+    if (window._ewwObserver) return 'already_set';
+
+    function extract() {
+        var r = [];
+        document.querySelectorAll('span[dir="auto"]').forEach(function(s) {
+            var t = s.textContent.trim();
+            if (!t) return;
+            var p = s; var bg = '';
+            for (var i = 0; i < 10; i++) {
+                p = p.parentElement;
+                if (!p) break;
+                var c = getComputedStyle(p).backgroundColor;
+                if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') { bg = c; break; }
+            }
+            r.push(JSON.stringify({t: t, b: bg}));
+        });
+        return '[' + r.join(',') + ']';
+    }
+
+    var debounceTimer = null;
+    window._ewwObserver = new MutationObserver(function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function() {
+            console.log('EWW_DM_UPDATE:' + extract());
+        }, 500);
+    });
+
+    var target = document.querySelector('[role="main"]') || document.body;
+    window._ewwObserver.observe(target, {childList: true, subtree: true, characterData: true});
+    return 'observer_set';
+})()"""
+
+def main():
+    global running
+
+    # Wait for CDP to be available (headless Brave might not be ready yet)
+    ws_url = None
+    while running and not ws_url:
+        try:
+            ws_url = get_ws_url()
+        except:
+            pass
+        if not ws_url:
+            print("Waiting for CDP target...", file=sys.stderr)
+            time.sleep(30)
+
+    ws = websocket.create_connection(ws_url)
+
+    # Inject Firefox cookies if not logged in
+    import sqlite3, shutil
+    try:
+        cdp_send(ws, "Runtime.evaluate", {"expression": "document.title", "returnByValue": True})
+        resp = cdp_wait(ws, msg_id, timeout=5)
+        title = resp.get("result", {}).get("result", {}).get("value", "") if resp else ""
+        if "Messages" not in title or os.environ.get("FORCE_COOKIE_INJECT"):
+            print("Not logged in, injecting Firefox cookies...", file=sys.stderr)
+            ff_db = os.path.expanduser("~/.mozilla/firefox/da94lirw.default-release/cookies.sqlite")
+            tmp_db = "/tmp/ff-cookies-tmp.sqlite"
+            shutil.copy2(ff_db, tmp_db)
+            conn = sqlite3.connect(tmp_db)
+            rows = conn.execute("SELECT host, name, value, path, expiry, isSecure, isHttpOnly FROM moz_cookies WHERE host LIKE '%instagram%'").fetchall()
+            conn.close()
+            for host, name, value, path, expiry, secure, httponly in rows:
+                cookie = {"name": name, "value": value, "domain": host, "path": path or "/", "secure": bool(secure), "httpOnly": bool(httponly)}
+                if expiry > 0: cookie["expires"] = expiry
+                cdp_send(ws, "Network.setCookie", cookie)
+                cdp_wait(ws, msg_id, timeout=2)
+            print(f"Injected {len(rows)} cookies", file=sys.stderr)
+    except Exception as e:
+        print(f"Cookie injection error: {e}", file=sys.stderr)
+
+    # Enable console API events so we receive MutationObserver logs
+    cdp_send(ws, "Runtime.enable")
+    cdp_wait(ws, msg_id, timeout=3)
+
+    # Navigate to DM thread, retry until page loads (network might not be ready)
+    logged_in = False
+    while running and not logged_in:
+        nav_id = cdp_send(ws, "Page.navigate", {"url": THREAD_URL})
+        cdp_wait(ws, nav_id, timeout=10)
+        time.sleep(10)
+
+        cdp_send(ws, "Runtime.evaluate", {"expression": "document.title", "returnByValue": True})
+        resp = cdp_wait(ws, msg_id, timeout=5)
+        title = resp.get("result", {}).get("result", {}).get("value", "") if resp else ""
+        if "Messages" in title:
+            logged_in = True
+            print(f"Page loaded: {title}", file=sys.stderr)
+        else:
+            print(f"Page not ready ({title}), retrying in 30s...", file=sys.stderr)
+            time.sleep(30)
+
+    # Initial extraction
+    ext_id = cdp_send(ws, "Runtime.evaluate", {"expression": EXTRACT_JS, "returnByValue": True})
+    resp = cdp_wait(ws, ext_id, timeout=5)
+    if resp and "result" in resp:
+        try:
+            raw = resp["result"]["result"]["value"]
+            msgs = extract_and_format(raw)
+            if msgs:
+                save_and_notify(msgs)
+        except: pass
+
+    # Set up MutationObserver
+    obs_id = cdp_send(ws, "Runtime.evaluate", {"expression": OBSERVER_JS, "returnByValue": True})
+    resp = cdp_wait(ws, obs_id, timeout=5)
+    print(f"Observer: {resp}", file=sys.stderr)
+
+    # Main loop: listen for console events from the MutationObserver
+    last_check = time.time()
+    while running:
+        try:
+            ws.settimeout(5)
+            raw = ws.recv()
+            event = json.loads(raw)
+
+            if event.get("method") == "Runtime.consoleAPICalled":
+                args = event.get("params", {}).get("args", [])
+                if args and str(args[0].get("value", "")).startswith("EWW_DM_UPDATE:"):
+                    handle_dm_update(args[0]["value"])
+                    last_check = time.time()
+
+        except websocket.WebSocketTimeoutException:
+            # Periodic health check every 30s: if no messages, re-extract
+            if time.time() - last_check > 30:
+                last_check = time.time()
+                try:
+                    ext_id = cdp_send(ws, "Runtime.evaluate", {"expression": EXTRACT_JS, "returnByValue": True})
+                    resp = cdp_wait(ws, ext_id, timeout=5)
+                    if resp and "result" in resp:
+                        raw = resp.get("result", {}).get("result", {}).get("value", "[]")
+                        msgs = extract_and_format(raw)
+                        if msgs:
+                            save_and_notify(msgs)
+                        else:
+                            # Page might have died, re-navigate
+                            print("No messages found, re-navigating...", file=sys.stderr)
+                            cdp_send(ws, "Page.navigate", {"url": THREAD_URL})
+                            cdp_wait(ws, msg_id, timeout=10)
+                            time.sleep(8)
+                            cdp_send(ws, "Runtime.evaluate", {"expression": OBSERVER_JS, "returnByValue": True})
+                            cdp_wait(ws, msg_id, timeout=5)
+                except Exception as e:
+                    print(f"Health check error: {e}", file=sys.stderr)
+            continue
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            time.sleep(5)
+            # Reconnect
+            try:
+                ws.close()
+                ws_url = get_ws_url()
+                if ws_url:
+                    ws = websocket.create_connection(ws_url)
+                    cdp_send(ws, "Runtime.enable")
+                    cdp_wait(ws, msg_id, timeout=3)
+                    cdp_send(ws, "Page.navigate", {"url": THREAD_URL})
+                    cdp_wait(ws, msg_id, timeout=10)
+                    time.sleep(8)
+                    cdp_send(ws, "Runtime.evaluate", {"expression": OBSERVER_JS, "returnByValue": True})
+                    cdp_wait(ws, msg_id, timeout=5)
+            except:
+                time.sleep(10)
+
+    ws.close()
+    try: os.unlink(PID_FILE)
+    except: pass
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+declare -a windowID=($(gdbus call --session --dest org.wayland.compositor --object-path /org/wayland/compositor --method org.wayland.compositor.query_view_vector_taskman_ids | sed 's/uint32//; s/[^[:digit:]]/ /g; s/  */ /g; s/^  *//g'))
+declare -a windowAppUnsorted=()
+declare -a windowApp=()
+for i in "${windowID[@]}"
+do
+    windowAppUnsorted+=($(gdbus call --session --dest org.wayland.compositor --object-path /org/wayland/compositor --method org.wayland.compositor.query_view_app_id "$i" | awk -F\' '{print $2}'))
+done
+windowApp=($(echo "${windowAppUnsorted[@]}" | tr ' ' '\n' | sort -u | sed 's/\n/ /g'))
+printf '%s\n' "${windowApp[@]}" | jq -R . | jq -s .

@@ -1,0 +1,2 @@
+#!/bin/bash
+playerctl -p spotify,%any metadata title 2>/dev/null || echo ""

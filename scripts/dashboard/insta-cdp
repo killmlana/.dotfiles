@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Fetch Instagram DMs via headless Brave + Chrome DevTools Protocol."""
+import json, sys, time
+import websocket
+import urllib.request
+
+CDP_PORT = 9333
+THREAD_URL = "https://www.instagram.com/direct/t/YOUR_THREAD_ID/"
+OUTPUT_FILE = "/tmp/eww-insta-dms.json"
+CACHE_FILE = "/tmp/eww-insta-last-msgs"
+
+def cdp_send(ws, method, params=None, id=1):
+    msg = {"id": id, "method": method}
+    if params:
+        msg["params"] = params
+    ws.send(json.dumps(msg))
+    while True:
+        resp = json.loads(ws.recv())
+        if resp.get("id") == id:
+            return resp
+        # Store events we care about
+        if resp.get("method") == "Network.responseReceived":
+            return resp
+
+def get_ws_url():
+    data = urllib.request.urlopen(f"http://localhost:{CDP_PORT}/json").read()
+    targets = json.loads(data)
+    for t in targets:
+        if t["type"] == "page":
+            return t["webSocketDebuggerUrl"]
+    return None
+
+def main():
+    ws_url = get_ws_url()
+    if not ws_url:
+        print("[]")
+        return
+
+    ws = websocket.create_connection(ws_url)
+
+    # Enable network interception
+    cdp_send(ws, "Network.enable", id=1)
+
+    # Navigate to the DM thread
+    cdp_send(ws, "Page.navigate", {"url": THREAD_URL}, id=2)
+
+    # Wait for page and collect network responses
+    dm_data = None
+    deadline = time.time() + 12
+
+    while time.time() < deadline:
+        try:
+            ws.settimeout(1)
+            raw = ws.recv()
+            event = json.loads(raw)
+
+            # Look for GraphQL responses containing DM data
+            if event.get("method") == "Network.responseReceived":
+                resp = event["params"]["response"]
+                url = resp.get("url", "")
+                if "/api/graphql" in url or "/api/v1/direct" in url:
+                    req_id = event["params"]["requestId"]
+                    # Get response body
+                    body_resp = cdp_send(ws, "Network.getResponseBody",
+                                        {"requestId": req_id}, id=99)
+                    if "result" in body_resp:
+                        body = body_resp["result"].get("body", "")
+                        if "thread_id" in body or "user_id" in body:
+                            try:
+                                dm_data = json.loads(body)
+                            except:
+                                pass
+        except websocket.WebSocketTimeoutException:
+            continue
+        except Exception as e:
+            break
+
+    ws.close()
+
+    if not dm_data:
+        # Fallback: extract from page DOM
+        ws = websocket.create_connection(ws_url)
+        result = cdp_send(ws, "Runtime.evaluate", {
+            "expression": """
+                (function() {
+                    var msgs = [];
+                    // Instagram renders messages with dir="auto" spans inside message containers
+                    var spans = document.querySelectorAll('[role="row"] span[dir="auto"], [role="listitem"] span[dir="auto"], [class*="xexx8yu"] span[dir="auto"]');
+                    spans.forEach(function(s) {
+                        var text = s.textContent.trim();
+                        if (text && text.length > 0 && text.length < 200) {
+                            // Check parent for sender color
+                            var el = s.closest('[style*="background"]') || s.parentElement;
+                            var bg = el ? getComputedStyle(el).backgroundColor : '';
+                            msgs.push({text: text, bg: bg});
+                        }
+                    });
+                    return JSON.stringify(msgs);
+                })()
+            """,
+            "returnByValue": True
+        }, id=10)
+        ws.close()
+
+        try:
+            dom_msgs = json.loads(result["result"]["result"]["value"])
+            msgs = []
+            for m in dom_msgs:
+                bg = m.get("bg", "")
+                # Parse RGB to detect sender
+                nums = [int(x) for x in (bg.replace("rgba(","").replace("rgb(","").replace(")","").split(",")[:3])] if "rgb" in bg else []
+                if nums and len(nums) >= 3:
+                    sender = "you" if nums[2] > nums[0] + 30 else "her"
+                else:
+                    sender = "?"
+                msgs.append({"sender": sender, "text": m["text"]})
+            dm_data = {"dom_messages": msgs}
+        except:
+            pass
+
+    # Format output
+    msgs = []
+    if dm_data:
+        # Try to extract from API response structure
+        if "dom_messages" in dm_data:
+            msgs = dm_data["dom_messages"]
+        else:
+            # Parse Instagram API response - varies by endpoint
+            try:
+                items = []
+                # Walk the JSON to find message items
+                def find_items(obj):
+                    if isinstance(obj, dict):
+                        if "text" in obj and ("user_id" in obj or "sender" in obj):
+                            items.append(obj)
+                        for v in obj.values():
+                            find_items(v)
+                    elif isinstance(obj, list):
+                        for v in obj:
+                            find_items(v)
+                find_items(dm_data)
+                for item in items[-10:]:
+                    text = item.get("text", "")
+                    if text:
+                        uid = str(item.get("user_id", ""))
+                        msgs.append({"sender": "you" if "YOUR_INSTAGRAM_USERNAME" in str(item) else "?", "text": text})
+            except:
+                pass
+
+    # Notify on changes
+    import os
+    current_key = "|".join([m.get("text","") for m in msgs[-3:]])
+    prev_key = ""
+    try:
+        with open(CACHE_FILE) as f:
+            prev_key = f.read().strip()
+    except: pass
+
+    if current_key and current_key != prev_key and prev_key != "":
+        her = [m["text"] for m in msgs if m.get("sender") == "her"]
+        if her:
+            os.system(f'notify-send -u critical "YOUR_PARTNER_USERNAME" "{her[-1][:50]}"')
+
+    with open(CACHE_FILE, "w") as f:
+        f.write(current_key)
+
+    # Format for eww
+    result = []
+    for m in msgs[-6:]:
+        s = m.get("sender", "?")
+        prefix = "<you>" if s == "you" else ("<her>" if s == "her" else ">")
+        text = m.get("text", "")
+        words = text.split()
+        line = ""
+        first = True
+        for word in words:
+            if line and len(line) + 1 + len(word) > 20:
+                result.append((prefix if first else "     ") + " " + line)
+                first = False
+                line = word
+            else:
+                line = ((line + " " + word) if line else word)
+        if line:
+            result.append((prefix if first else "     ") + " " + line)
+
+    print(json.dumps(result))
+
+if __name__ == "__main__":
+    main()

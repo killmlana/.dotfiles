@@ -1,0 +1,17 @@
+#!/bin/bash
+wfctl "list views" 2>/dev/null | python3 -c "
+import sys, json
+views = json.load(sys.stdin)
+apps = {}
+for v in views:
+    aid = v.get('app-id','')
+    ts = v.get('last-focus-timestamp', 0)
+    title = v.get('title','')
+    if aid and v.get('role') == 'toplevel' and v.get('mapped') and aid not in ('nil','') and ts > 0:
+        if aid not in apps or ts > apps[aid][0]:
+            apps[aid] = (ts, title)
+result = []
+for aid, (ts, title) in sorted(apps.items(), key=lambda x: -x[1][0]):
+    result.append(aid)
+print(json.dumps(result[:5]))
+" 2>/dev/null || echo '[]'

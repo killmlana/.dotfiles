@@ -1,0 +1,2 @@
+#!/bin/bash
+curl -s --max-time 15 "http://localhost:4333/https://www.instagram.com/direct/t/YOUR_THREAD_ID/" 2>/dev/null | grep -oi "new message\|Unread" | head -1 | grep -q . && echo "true" || echo "false"

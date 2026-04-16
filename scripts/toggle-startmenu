@@ -1,0 +1,14 @@
+#!/bin/bash
+state=$(eww -c ~/.config/eww get startmenu-reveal)
+if [ "$state" = "true" ]; then
+    eww -c ~/.config/eww update startmenu-reveal=false
+    eww -c ~/.config/eww update searchmenu-reveal=false
+    eww -c ~/.config/eww close searchbar
+    eww -c ~/.config/eww close dismiss-layer
+    echo menu-closed > /tmp/eww-kbselection
+else
+    eww -c ~/.config/eww update startmenu-reveal=true
+    eww -c ~/.config/eww open dismiss-layer
+    eww -c ~/.config/eww open searchbar
+    echo menu-opened > /tmp/eww-kbselection
+fi

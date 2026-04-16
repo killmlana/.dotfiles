@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+import os, sys, math, signal
+
+from wayfire import WayfireSocket
+
+FIFO = "/tmp/eww-taskbar"
+PID_FILE = "/tmp/eww-taskbar.pid"
+
+APPS = {
+    "discord":          {"search": "vesktop",  "launch": "vesktop"},
+    "code-url-handler": {"search": "code",     "launch": "code"},
+}
+
+OUT_W, OUT_H = 1920, 1080
+OUTPUT_NAME = "DP-1"
+
+sock = WayfireSocket()
+
+def get_current_ws():
+    for ws in sock.list_wsets():
+        if ws.get("output-name") == OUTPUT_NAME:
+            w = ws["workspace"]
+            return w["x"], w["y"], w["grid_width"]
+    return 0, 0, 3
+
+def handle_click(app_name):
+    config = APPS.get(app_name)
+    search_term = config["search"] if config else app_name
+
+    matches = [
+        v for v in sock.list_views()
+        if v.get("app-id") == search_term
+        and v.get("role") == "toplevel"
+        and v.get("mapped")
+    ]
+
+    if not matches:
+        launch = config["launch"] if config else search_term
+        os.system(f"~/.config/eww/scripts/wl-launch --desktop {launch} &>/dev/null &")
+        return
+
+    best = max(matches, key=lambda v: v.get("last-focus-timestamp", 0))
+    vx = best["base-geometry"]["x"]
+    vy = best["base-geometry"]["y"]
+    vid = best["id"]
+    minimized = best["minimized"]
+
+    on_current = (0 <= vx < OUT_W and 0 <= vy < OUT_H)
+
+    if on_current:
+        sock.set_view_minimized(vid, not minimized)
+    else:
+        cx, cy, gw = get_current_ws()
+        ws_x = cx + math.floor(vx / OUT_W)
+        ws_y = cy + math.floor(vy / OUT_H)
+        sock.set_workspace(ws_x, ws_y)
+
+def cleanup(*_):
+    try: os.unlink(FIFO)
+    except: pass
+    try: os.unlink(PID_FILE)
+    except: pass
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, cleanup)
+signal.signal(signal.SIGINT, cleanup)
+
+# Kill existing instance
+try:
+    with open(PID_FILE) as f:
+        old = int(f.read().strip())
+    os.kill(old, signal.SIGTERM)
+except: pass
+
+# Write PID
+with open(PID_FILE, "w") as f:
+    f.write(str(os.getpid()))
+
+# Create FIFO
+try: os.unlink(FIFO)
+except: pass
+os.mkfifo(FIFO)
+
+while True:
+    with open(FIFO, "r") as f:
+        for line in f:
+            parts = line.strip().split(maxsplit=1)
+            if not parts:
+                continue
+            if parts[0] == "click" and len(parts) > 1:
+                try:
+                    handle_click(parts[1])
+                except Exception as e:
+                    print(f"taskbar-daemon: {e}", file=sys.stderr)

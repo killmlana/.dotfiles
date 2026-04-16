@@ -1,0 +1,229 @@
+#!/usr/bin/perl
+use Linux::DesktopFiles;
+use Data::Dumper qw(Dumper);
+use Tree::Trie;
+use Tie::IxHash;
+use JSON;
+use JSON::MaybeXS;
+use File::Slurp;
+
+
+sub KMPSearch {
+    # Input: pattern, text
+    # Output: index of first occurrence of pattern in text
+    my ($pat, $txt) = @_;
+
+    my $M = length($pat);
+    my $N = length($txt);
+ 
+    my @lps = getLPSArray($pat, $M);
+ 
+    my $i = 0; # index for txt[]
+    my $j = 0; # index for pat[]
+    while ($i < $N) {
+        if (substr($pat, $j, 1) eq substr(lc($txt), $i, 1)) {
+            $j++;
+            $i++;
+        }
+ 
+        if ($j == $M) {
+            return $i-$j;
+            $j = $lps[$j - 1];
+        }
+ 
+        # mismatch after j matches
+        elsif ($i < $N && substr($pat, $j, 1) ne substr($txt, $i, 1)) {
+            # Do not match lps[0..lps[j-1]] characters,
+            # they will match anyway
+            if ($j != 0) {
+                $j = $lps[$j - 1];
+            } else {
+                $i = $i + 1;
+            }
+        }
+    }
+ 
+    return;
+}
+
+sub getLPSArray {
+    my ($pat, $length) = @_;
+    my $len = 0;  # length of the previous longest prefix suffix
+    my @lps = (0) x $length;
+    my $i = 1;
+ 
+    while ($i < $length) {
+        if (substr($pat, $i, 1) eq substr($pat, $len, 1)) {
+            $len++;
+            $lps[$i] = $len;
+            $i++;
+        } else {
+            if ($len != 0) {
+                $len = $lps[$len - 1];
+            } else {
+                $lps[$i] = 0;
+                $i++;
+            }
+        }
+    }
+ 
+    return @lps;
+}
+
+my $obj = Linux::DesktopFiles->new(categories => [qw(
+                                Utility
+                                Development
+                                Education
+                                Game
+                                Graphics
+                                AudioVideo
+                                Network
+                                Office
+                                System)], 
+                                keys_to_keep => ["Name", "Exec", "Terminal"]);
+
+
+if ($ARGV[0] eq 'run') {
+    my %hash = $obj->parse_desktop_files();
+    my $search = join(' ', @ARGV[1..$#ARGV]);
+    while ( ($k,$v) = each %hash ) {
+        foreach (@$v) {
+            while ( ($k,$v) = each %$_ ) { 
+                if ($k eq 'Name' && lc($v) eq lc($search)) {
+                    if ($_->{Terminal} eq true) {
+                        system("footclient $_->{Exec}");
+                    }
+                    else {
+                        system("~/.config/eww/scripts/wl-launch $_->{Exec}");
+                    }
+                } 
+            }
+        }
+    }
+}
+
+if ($ARGV[0] eq 'subrun') {
+    my %hash = $obj->parse_desktop_files();
+    my $search = join(' ', @ARGV[1..$#ARGV]);
+    my $term = false;
+    while ( ($k,$v) = each %hash ) {
+        foreach (@$v) {
+            while ( ($k,$v) = each %$_ ) { 
+                if ($k eq 'Name' && lc($v) eq lc($search)) {
+                    if ($_->{Terminal} eq true) {
+                        $term = true; #Hardcoded the terminal name :p, change it to your desired terminal.
+                    }
+                    else {
+                        $term = false;
+                    }
+                } 
+            }
+        }
+    }
+    # Read JSON file
+    my $json_file = "$ENV{HOME}/.config/eww/cache/selection-info.json";
+    my $json_text = read_file($json_file);
+    my $data = decode_json($json_text);
+
+    # Sanitize output of the `eww` command to get the primary key
+    my $primary_key = sanitize_command_output('eww -c ~/.config/eww get search-results-active-selection');
+
+
+    # Check if primary key exists in JSON data
+    if (exists $data->{$primary_key}) {
+        my $commands = $data->{$primary_key};
+        
+        # Iterate through the commands to find the matching one
+        foreach my $command_name (keys %$commands) {
+            if (lc($command_name) eq lc($search)) {
+                my $exec_command = $commands->{$command_name};
+                # Check if the command needs to be run in a terminal
+                if ($term eq true) {
+                    system("footclient $exec_command");
+                } else {
+                    system("~/.config/eww/scripts/wl-launch $exec_command");
+                }
+                exit 0; # Exit after executing the command
+            }
+        }
+
+        # If no matching command found
+        print "No matching command found for: $search_query\n";
+    } else {
+        print "Primary key '$primary_key' not found in JSON data.\n";
+    }
+} else {
+    print "Usage: $0 run <search_query>\n";
+}
+
+# Function to sanitize output of the command
+sub sanitize_command_output {
+    my ($command) = @_;
+    my $output = `$command`;
+    chomp($output);
+    $output =~ s/^\s+|\s+$//g; # Trim leading and trailing whitespace
+    return $output;
+}
+
+if ($ARGV[0] eq 'search' && $ARGV[1] ne '') {
+    my $search = join(' ', @ARGV[1..$#ARGV]);
+    my %hash = $obj->parse_desktop_files();
+    my @apps;
+    my %seen;  # Hash to keep track of unique elements
+
+    while (($k,$v) = each %hash ) {
+        foreach (@$v) {
+            while ( ($k,$v) = each %$_ ) {
+                if ($k eq 'Name' && !$seen{$v}) {  # Check if 'Name' and not seen before
+                    push @apps, $v;
+                    $seen{$v} = 1;  # Mark as seen
+                }
+            }
+        }
+    }
+
+    my $pattern = lc($search);
+    my @filtered = grep { defined KMPSearch($pattern, lc($_)) } @apps;
+    my @sorted = sort { 
+        my $a_idx = KMPSearch($pattern, $a) // length($a);
+        my $b_idx = KMPSearch($pattern, $b) // length($b);
+        $a_idx <=> $b_idx or $a cmp $b
+    } @filtered;
+
+    if ($#sorted <= 19) {
+        my $string = '["' . join('","', @sorted) . '"]';
+        system("eww -c ~/.config/eww/ update search-results='$string' && eww -c ~/.config/eww/ update searchmenu-reveal=true && echo 'init-results $string' > /tmp/eww-kbselection");
+    } elsif ($#sorted > 19) {
+        my $string = '["' . join('","', @sorted[0..19]) . '"]';
+        system("eww -c ~/.config/eww/ update search-results='$string' && eww -c ~/.config/eww/ update searchmenu-reveal=true && echo 'init-results $string' > /tmp/eww-kbselection");
+    }
+}
+
+
+if ($ARGV[0] eq 'search' && $ARGV[1] eq '') {
+    system("eww -c ~/.config/eww/ update search-results='[]' && eww -c ~/.config/eww/ update searchmenu-reveal=false && echo 'clear-results' > /tmp/eww-kbselection");
+}
+
+if ($ARGV[0] eq 'kb' && $ARGV[1] ne '') {
+    my $search = join(' ', @ARGV[1..$#ARGV]);
+    my %hash = $obj->parse_desktop_files();
+    my @apps;
+    while (($k,$v) = each %hash ) {
+        foreach (@$v) {
+            while ( ($k,$v) = each %$_ ) {
+                if ($k eq 'Name') {
+                    push @apps, $v;
+                }
+            }
+        }
+    }
+    my $pattern = lc($search);
+    my @filtered = grep { defined KMPSearch($pattern,lc($_)) } @apps;
+    my @sorted = sort { 
+        my $a_idx = KMPSearch($pattern, $a) // length($a);
+        my $b_idx = KMPSearch($pattern, $b) // length($b);
+        $a_idx <=> $b_idx or $a cmp $b
+    } @filtered;
+    my $string = '["' . join('","', @sorted) . '"]';
+    system("echo 'init-results $string' > /tmp/eww-kbselection");
+}

@@ -1,0 +1,788 @@
+* {
+    all: unset;
+    color: #11111b;
+  }
+
+$border: #f38ba8;
+$start-bg: #11111b;
+$font : 'Nimbus Sans';
+$font-size: 14;
+$font-color: #f5e0dc;
+$timeout-selection: 1ms;
+
+.revealer-searchinfo {
+    background-color: #f5e0dc;
+}
+
+.bar {
+    background-color: #11111b;
+    border-top-width: 2px;
+    border-right-width: 4px;
+    border-left-width: 4px;
+    border-top-style: solid;
+    border-top-color: #f38ba8;
+}
+
+.weatherButtonBox {
+    padding-left: 3px;
+    padding-right: 5px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+}
+
+.weatherButton{
+    transition: background-color 200ms;
+    border-radius: 3px;
+}
+
+.weatherButton:hover {
+    background-color: #45475a;
+}
+
+.temperatureText {
+    font-size: 11px;
+    font-family: Verdana;
+    color: #f38ba8;
+    padding-left: 4px;
+}
+
+.weatherText {
+    font-size: 10px;
+    padding-left: 0px;
+    font-family: Verdana;
+    color: #f38ba8;
+    padding-top: 1px;
+    padding-left: 4px;
+}
+
+.taskbar-button-box {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 5px;
+    padding-bottom: 6px;
+}
+
+// taskbar states: closed (not running), open, minimized
+.taskbar-btn-closed {
+    transition: background-color 200ms;
+    border-radius: 5px;
+    background-color: #11111b;
+}
+
+.taskbar-btn-closed:hover {
+    background-color: #73e968;
+}
+
+.taskbar-btn-closed:active {
+    background-color: #73e968;
+    box-shadow: inset 0px 0px 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+.taskbar-btn-open {
+    transition: background-color 200ms;
+    border-radius: 5px;
+    background-color: #f38ba8;
+}
+
+.taskbar-btn-open:hover {
+    background-color: #73e968;
+}
+
+.taskbar-btn-open:active {
+    background-color: #73e968;
+    box-shadow: inset 0px 0px 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+.taskbar-btn-minimized {
+    transition: background-color 200ms;
+    border-radius: 5px;
+    background-color: #f38ba8;
+    opacity: 0.5;
+}
+
+.taskbar-btn-minimized:hover {
+    background-color: #73e968;
+    opacity: 1;
+}
+
+.taskbar-btn-minimized:active {
+    background-color: #73e968;
+    box-shadow: inset 0px 0px 2px 3px rgba(0, 0, 0, 0.4);
+    opacity: 1;
+}
+
+.startwindow {
+    background-color: rgba(33, 40, 52, 0);
+  }
+
+.startmenu-bg {
+    background-color: rgba(33, 40, 52, 0);
+}
+
+.dismiss-bg {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.startmenu-fg {
+    background-color: $start-bg;
+    border-radius: 8px;
+    border-color: $border;
+    border-width: 2px;
+    border-style: solid;
+    box-shadow: 0px -1px 25px -13px rgba(0, 0, 0, 1);
+}
+
+.startmenu-padding {
+    background-color: rgba(33, 40, 52, 0);
+}
+
+.arch-button-eventbox {
+    transition: background-color 200ms;
+    border-radius: 5px;
+    transition: box-shadow 100ms;
+    background-color: #f38ba8;
+}
+
+.arch-button-eventbox:hover {
+    background-color: #73e968;
+    transition: background-color 200ms;
+}
+
+.arch-button-eventbox-active {
+    background-color: #73e968;
+    transition: box-shadow 100ms;
+    border-radius: 5px;
+    box-shadow: inset 0px 0px 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+.arch-button-box {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 5px;
+    padding-bottom: 6px;
+}
+
+.searchbar-bg {
+    background-color: $start-bg;
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: $border;
+    border-style: solid;
+}
+.searchbar-bg2 {
+    background-color: $start-bg;
+}
+
+.searchbar {
+    background-color: rgba(33, 40, 52, 0);
+}
+
+.search-initial {
+    background-color: $start-bg;
+    color: $font-color;
+    border-radius: 8px;
+    padding-left: 10px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    font-family: Hack;
+    
+}
+
+.search-box-text {
+    background-color: $start-bg;
+    color: $font-color;
+    padding-left: 10px;
+    padding-top: 2px;
+    border-radius: 8px;
+    padding-bottom: 2px;
+    font-size: 14px;
+}
+.power-menu {
+    padding-top: 10px;
+    padding-left: 25px;
+}
+
+.power-options {
+    color: $font-color;
+    font-size: 14px;
+    font-family: Montserrat;
+    padding-top: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-bottom: 4px;
+}
+
+.power-eventbox {
+    transition: border-color 250ms;
+    transition: background-color 100ms;
+    transition: box-shadow 100ms;
+    border-color: #11111b;
+}
+
+.power-eventbox:hover {
+    transition: border-color 250ms;
+    border-color: $border;
+    border-radius: 4px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.power-eventbox:active {
+    box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.3);
+}
+
+.powermenu-padding {
+    border-top-color: $border;
+    border-style: solid;
+    border-top-width: 2px;
+    margin-top: 7px;
+    background-color: #11111b;
+}
+
+.searchmenu-bg {
+    background-color:$start-bg;
+}
+
+.results-bg {
+    padding-top: 10px;
+    border-right: $border;
+    border-right-width: 0px;
+    border-right-style: solid;
+}
+
+.Dialog-searchresults {
+    margin-bottom: 10px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color:#f38ba8;
+    color: $font-color;
+    margin-left: 33px;
+    font-family: $font;
+    font-size: $font-size;
+    margin-top: 8px;
+}
+
+.selected {
+    background-color: #f38ba8;
+    transition: color $timeout-selection ease-out;
+    transition: background-color $timeout-selection ease-out;
+    color: #030201;
+    padding-left: 3px;
+    border-radius: 4px;
+    font-family: $font;
+    font-size: $font-size;
+    margin-left: 5px;
+}
+.non-selected {
+    background-color:$start-bg;
+    transition: color $timeout-selection ease-out;
+    transition: background-color $timeout-selection ease-out;
+    color:$font-color;
+    padding-left: 3px;
+    border-radius: 4px;
+    font-family: $font;
+    font-size: $font-size;
+}
+
+// Labels inside eventboxes - transparent so parent hover/active shows through
+.non-selected .non-selected {
+    background-color: transparent;
+}
+.selected .selected {
+    background-color: transparent;
+}
+
+.non-selected:hover {
+    background-color: #1e1e2e;
+}
+
+.non-selected:active {
+    background-color: rgba(243, 139, 168, 0.3);
+}
+
+.selected:active {
+    box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.3);
+}
+
+.startmenu-bottom {
+    border-top-width: 2px;
+    border-top-style: solid;
+    border-top-color:$border;
+}
+
+.search-info-bg {
+    
+    border-right-style: solid;
+    border-color: $border;
+}
+
+.searchinfo-state-eventbox-tab-active {
+    background-color: #f38ba8;
+    border-width: 1px;
+    border-style: solid;
+    border-color: $border;
+    border-radius: 4px;
+}
+
+.searchinfo-state-eventbox-dialog-active {
+    font-size: 20;
+    color: #11111b;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+
+.searchinfo-state-eventbox-tab-inactive {
+    background-color: #11111b;
+    border-width: 1px;
+    border-style: solid;
+    border-color: $border;
+    border-radius: 4px;
+}
+
+.searchinfo-state-eventbox-dialog-inactive {
+    font-size: 20;
+    color: $font-color;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.search-legend {
+    border-bottom-style: solid;
+    border-bottom-width: 2px;
+    border-color: $border;
+    margin-left: 0px;
+}
+
+.legend-dialog {
+    font-family: $font;
+    font-size: $font-size;
+    color: $font-color;
+    margin-left: 16px;
+    margin-right: 16px;
+    margin-top: 4px;
+}
+
+.legend-box {
+    margin-top: 25px;
+    margin-left: 33px;
+}
+
+.searchresults-border-right {
+    border-right-width: 2px;
+    border-right-style: solid;
+    border-color: $border;
+}
+
+.arrow {
+    font-size: 16;
+    color: #11111b;
+    margin-left: 12px;
+    margin-right: 12px;
+    margin-top: 2px;
+}
+
+.arrow-eventbox {
+    background-color: #f38ba8;
+    border-width: 1px;
+    border-style: solid;
+    border-color: $border;
+    border-radius: 4px;
+}
+
+.return {
+    font-size: 16;
+    color: #11111b;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-top: 2px;
+}
+
+.return-eventbox {
+    background-color: #f38ba8;
+    border-width: 1px;
+    border-style: solid;
+    border-color: $border;
+    border-radius: 4px;
+}
+
+.tabulation-eventbox {
+    background-color: #f38ba8;
+    border-width: 1px;
+    border-style: solid;
+    border-color: $border;
+    border-radius: 4px;
+}
+
+.tabulation {
+    font-size: 16;
+    color: #11111b;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 2px;
+}
+
+// ── dashboard (neo-brutalist TUI) ─────────────────────────────────────────
+
+$dash-green: #a6e3a1;
+$dash-blue: #89b4fa;
+$dash-peach: #fab387;
+
+.dash-card {
+    border-width: 2px;
+    border-style: solid;
+    border-color: $border;
+    padding: 12px;
+}
+
+.dash-left-col {
+    padding: 8px 16px;
+}
+
+.dash-section-title {
+    font-size: 10px;
+    font-family: Hack;
+    color: $border;
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+    min-width: 120px;
+}
+
+.dash-recent-btn {
+    padding: 5px 8px;
+    transition: background-color 100ms;
+}
+
+.dash-recent-btn:hover {
+    background-color: rgba(243, 139, 168, 0.15);
+}
+
+.dash-recent-btn:active {
+    background-color: rgba(243, 139, 168, 0.3);
+}
+
+.dash-recent-text {
+    font-size: 12px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-links-col {
+    margin-top: 8px;
+    margin-right: 16px;
+}
+
+.dash-link-text {
+    font-size: 14px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-link-gf {
+    font-size: 14px;
+    font-family: Hack;
+    color: $border;
+}
+
+.dash-right-pad {
+    padding: 8px 16px 8px 0;
+}
+
+.dash-unread-dot {
+    font-size: 10px;
+    color: $border;
+}
+
+.dash-disk-btn {
+    transition: background-color 100ms;
+}
+
+.dash-disk-btn:hover {
+    background-color: rgba(243, 139, 168, 0.1);
+}
+
+.dash-disk-btn:active {
+    background-color: rgba(243, 139, 168, 0.25);
+}
+
+.dash-disk-bar {
+    padding: 8px 12px;
+}
+
+.dash-disk-label {
+    font-size: 10px;
+    font-family: Hack;
+    color: $border;
+    min-width: 35px;
+    letter-spacing: 2px;
+}
+
+.dash-disk-text {
+    font-size: 10px;
+    font-family: Hack;
+    color: $border;
+    min-width: 60px;
+}
+
+.dash-disk-progress trough {
+    background-color: rgba(243, 139, 168, 0.15);
+    min-height: 8px;
+}
+
+.dash-disk-progress progress {
+    background-color: $border;
+    min-height: 8px;
+}
+
+.dash-reload-btn {
+    padding: 2px 6px;
+    transition: background-color 100ms;
+}
+
+.dash-reload-btn:hover {
+    background-color: rgba(243, 139, 168, 0.15);
+}
+
+.dash-reload-btn:active {
+    background-color: rgba(243, 139, 168, 0.3);
+}
+
+.dash-reload-icon {
+    font-size: 14px;
+    font-family: 'Noto Color Emoji', Hack;
+    color: $border;
+}
+
+.dash-dm-card-btn {
+    transition: background-color 100ms;
+}
+
+.dash-dm-card-btn:hover {
+    background-color: rgba(243, 139, 168, 0.1);
+}
+
+.dash-dm-card-btn:active {
+    background-color: rgba(243, 139, 168, 0.25);
+}
+
+.dash-dm-text {
+    font-size: 11px;
+    font-family: Hack, 'Noto Color Emoji';
+    color: $font-color;
+    padding: 3px 0;
+}
+
+.dash-dm-prefix-her {
+    font-size: 11px;
+    font-family: Hack, 'Noto Color Emoji';
+    color: $border;
+    padding: 3px 0;
+    margin-right: 4px;
+}
+
+.dash-dm-prefix-you {
+    font-size: 11px;
+    font-family: Hack, 'Noto Color Emoji';
+    color: $font-color;
+    padding: 3px 0;
+    margin-right: 4px;
+}
+
+.dash-clock-section {
+    min-width: 160px;
+}
+
+
+.dash-clock {
+    font-size: 44px;
+    font-family: Hack;
+    color: $border;
+    min-width: 160px;
+}
+
+.dash-day {
+    font-size: 14px;
+    font-family: Hack;
+    color: $font-color;
+    letter-spacing: 2px;
+    min-width: 160px;
+}
+
+.dash-date {
+    font-size: 12px;
+    font-family: Hack;
+    color: $border;
+    letter-spacing: 1px;
+    min-width: 160px;
+}
+
+.dash-weather {
+    margin-top: 6px;
+}
+
+.dash-temp {
+    font-size: 12px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-weather-text {
+    font-size: 11px;
+    font-family: Hack;
+    color: rgba(245, 224, 220, 0.5);
+}
+
+.dash-art {
+    border-width: 2px;
+    border-style: solid;
+    border-color: $border;
+}
+
+.dash-music-info {
+    margin-left: 12px;
+}
+
+.dash-music-title {
+    font-size: 14px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-music-artist {
+    font-size: 11px;
+    font-family: Hack;
+    color: $border;
+}
+
+.dash-controls {
+    margin-top: 6px;
+}
+
+.dash-ctrl-btn {
+    padding: 3px 8px;
+    transition: background-color 100ms;
+}
+
+.dash-ctrl-text {
+    font-size: 11px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-ctrl-icon {
+    font-size: 16px;
+    font-family: 'FiraCode Nerd Font';
+    color: $font-color;
+}
+
+.dash-ctrl-btn:hover {
+    background-color: $border;
+}
+
+.dash-ctrl-btn:hover .dash-ctrl-text {
+    color: $start-bg;
+}
+
+.dash-ctrl-btn:hover .dash-ctrl-icon {
+    color: $start-bg;
+}
+
+.dash-ctrl-btn:active {
+    background-color: $font-color;
+}
+
+.dash-time-label {
+    font-size: 10px;
+    font-family: Hack;
+    color: $border;
+}
+
+.dash-seek-bar trough {
+    background-color: rgba(243, 139, 168, 0.2);
+    min-height: 8px;
+}
+
+.dash-seek-bar highlight {
+    background-color: $border;
+    min-height: 8px;
+}
+
+.dash-seek-bar slider {
+    background-color: $font-color;
+    min-width: 4px;
+    min-height: 12px;
+    margin: -2px 0;
+}
+
+.dash-stat-label {
+    font-size: 10px;
+    font-family: Hack;
+    color: $border;
+    margin-top: 6px;
+    letter-spacing: 2px;
+    min-width: 40px;
+}
+
+.dash-stat-value {
+    font-size: 14px;
+    font-family: Hack;
+    color: $font-color;
+}
+
+.dash-net-down {
+    font-size: 12px;
+    font-family: Hack;
+    color: $dash-green;
+    min-width: 80px;
+}
+
+.dash-net-up {
+    font-size: 12px;
+    font-family: Hack;
+    color: $dash-peach;
+    min-width: 80px;
+}
+
+.dash-net-label {
+    font-size: 10px;
+    font-family: Hack;
+    color: rgba(245, 224, 220, 0.4);
+    min-width: 80px;
+}
+
+.dash-vol-ring {
+    color: $dash-green;
+    background-color: rgba(166, 227, 161, 0.08);
+}
+
+.dash-cpu-ring {
+    color: $dash-peach;
+    background-color: rgba(250, 179, 135, 0.08);
+}
+
+.dash-ram-ring {
+    color: $dash-blue;
+    background-color: rgba(137, 180, 250, 0.08);
+}
+
+.dash-vol-slider {
+    margin-top: 8px;
+}
+
+.dash-vol-slider trough {
+    background-color: rgba(166, 227, 161, 0.15);
+    min-height: 8px;
+}
+
+.dash-vol-slider slider {
+    background-color: $dash-green;
+    min-width: 4px;
+    min-height: 12px;
+    margin: -2px 0;
+}
+
+.dash-vol-slider highlight {
+    background-color: $dash-green;
+    min-height: 8px;
+}

@@ -1,0 +1,3 @@
+#!/bin/bash
+~/.config/eww/scripts/selection-info.out
+echo reload-cache > /tmp/eww-kbselection 2>/dev/null

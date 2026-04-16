@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Fetch Instagram DMs via headless Brave CDP. Reads DOM for messages + bg color for sender."""
+import json, sys, re, os
+import websocket
+import urllib.request
+
+CDP_PORT = 9333
+DM_FILE = "/tmp/eww-insta-dms.json"
+CACHE_FILE = "/tmp/eww-insta-last-msgs"
+
+SKIP = {"Primary", "General", "Requests", "Your note", "Message...",
+        "YOUR_PARTNER_USERNAME", "YOUR_INSTAGRAM_USERNAME", "Typing...", "Active now", "Send message",
+        "Turn on", "Turn On", "Not Now", "My Precious"}
+
+try:
+    data = urllib.request.urlopen(f"http://localhost:{CDP_PORT}/json").read()
+    ws_url = [t["webSocketDebuggerUrl"] for t in json.loads(data) if t["type"] == "page"][0]
+except:
+    print("[]")
+    sys.exit()
+
+ws = websocket.create_connection(ws_url)
+
+js = """(function() {
+    var r = [];
+    document.querySelectorAll('span[dir="auto"]').forEach(function(s) {
+        var t = s.textContent.trim();
+        if (!t) return;
+        var p = s; var bg = '';
+        for (var i = 0; i < 10; i++) {
+            p = p.parentElement;
+            if (!p) break;
+            var c = getComputedStyle(p).backgroundColor;
+            if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') { bg = c; break; }
+        }
+        r.push(JSON.stringify({t: t, b: bg}));
+    });
+    return '[' + r.join(',') + ']';
+})()"""
+
+ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
+                     "params": {"expression": js, "returnByValue": True}}))
+
+resp = None
+for _ in range(30):
+    r = json.loads(ws.recv())
+    if r.get("id") == 1:
+        resp = r
+        break
+ws.close()
+
+if not resp:
+    print("[]")
+    sys.exit()
+
+try:
+    raw = json.loads(resp["result"]["result"]["value"])
+except:
+    print("[]")
+    sys.exit()
+
+msgs = []
+for m in raw:
+    text = m["t"]
+    bg = m["b"]
+    if text in SKIP or len(text) > 150:
+        continue
+    if text.startswith("Seen ") or text.startswith("m^") or "My Precious" in text or "replied to" in text:
+        continue
+    if text.startswith("You: ") or text.startswith("You "):
+        continue
+    skip_phrases = ["sent a reel", "sent a photo", "sent an image", "shared a reel",
+                    "shared a post", "sent a video", "sent a voice", "sent an attachment",
+                    "liked a message", "reel by", "photo by", "video by",
+                    "sent attachment", "reacted to"]
+    if any(p.lower() in text.lower() for p in skip_phrases):
+        continue
+    if re.match(r'^[a-zA-Z0-9_.◑^]+$', text) and len(text) < 15 and (' ' not in text):
+        continue
+
+    # Sender: your bubbles are bright blue rgb(74,93,249), hers are dark gray rgb(37,41,46)
+    nums = re.findall(r'\d+', bg)
+    if len(nums) >= 3:
+        r, g, b = int(nums[0]), int(nums[1]), int(nums[2])
+        if b > 150:
+            sender = "you"   # bright blue bubble
+        elif r < 50 and g < 50 and b < 50:
+            sender = "her"   # dark gray bubble
+        else:
+            sender = "?"
+    else:
+        sender = "?"
+
+    msgs.append({"sender": sender, "text": text})
+
+# Notify on new her messages
+cur_key = "|".join([m["text"] for m in msgs[-3:]])
+prev_key = ""
+try:
+    with open(CACHE_FILE) as f:
+        prev_key = f.read().strip()
+except: pass
+
+if cur_key and cur_key != prev_key and prev_key:
+    her = [m["text"] for m in msgs if m["sender"] == "her"]
+    if her:
+        os.system('notify-send -u critical "YOUR_PARTNER_USERNAME" "' + her[-1][:60].replace('"', '') + '"')
+
+with open(CACHE_FILE, "w") as f:
+    f.write(cur_key)
+
+# Format for eww
+result = []
+for m in msgs[-6:]:
+    prefix = "<you>" if m["sender"] == "you" else "<her>"
+    text = m["text"]
+    words = text.split()
+    line = ""
+    first = True
+    for word in words:
+        if line and len(line) + 1 + len(word) > 20:
+            result.append((prefix if first else "     ") + " " + line)
+            first = False
+            line = word
+        else:
+            line = ((line + " " + word) if line else word)
+    if line:
+        result.append((prefix if first else "     ") + " " + line)
+
+print(json.dumps(result))

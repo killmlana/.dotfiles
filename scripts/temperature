@@ -1,0 +1,8 @@
+#!/bin/bash
+
+wget --quiet \
+	--method GET \
+	--header 'X-RapidAPI-Key: YOUR_RAPIDAPI_KEY' \
+	--header 'X-RapidAPI-Host: weatherapi-com.p.rapidapi.com' \
+	--output-document \
+	- 'https://weatherapi-com.p.rapidapi.com/current.json?q=YOUR_CITY%20YOUR_COUNTRY' | jq ".current.temp_c"

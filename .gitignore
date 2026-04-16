@@ -1,0 +1,16 @@
+# Runtime cache
+/cache/
+
+# Compiled binaries
+*.out
+scripts/wl-launch
+scripts/kbselection-daemon
+scripts/taskbar-ctl.out
+
+
+# IDE / editor
+*.code-workspace
+
+# Device / session files
+*.pid
+*.log

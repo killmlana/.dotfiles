@@ -1,0 +1,25 @@
+#!/bin/bash
+wfctl "list views" 2>/dev/null | python3 -c "
+import sys, json
+
+APPS = {
+    'discord': 'vesktop',
+    'code-url-handler': 'code',
+}
+
+views = json.load(sys.stdin)
+state = {}
+
+for name, app_id in APPS.items():
+    matches = [v for v in views
+               if v.get('app-id') == app_id
+               and v.get('role') == 'toplevel'
+               and v.get('mapped')]
+    if not matches:
+        state[name] = 'closed'
+    else:
+        best = max(matches, key=lambda v: v.get('last-focus-timestamp', 0))
+        state[name] = 'minimized' if best['minimized'] else 'open'
+
+print(json.dumps(state))
+"

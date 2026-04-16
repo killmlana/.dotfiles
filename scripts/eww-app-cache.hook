@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Remove
+Operation = Upgrade
+Type = Path
+Target = usr/share/applications/*.desktop
+
+[Action]
+Description = Refreshing eww app cache...
+When = PostTransaction
+Exec = /home/YOUR_USER/.config/eww/scripts/refresh-app-cache

@@ -1,0 +1,4 @@
+#!/bin/bash
+len=$(playerctl -p spotify,%any metadata mpris:length 2>/dev/null)
+[ -z "$len" ] && echo "0" && exit
+echo $(( len / 1000000 ))

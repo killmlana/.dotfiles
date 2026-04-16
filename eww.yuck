@@ -1,0 +1,402 @@
+(defpoll weather :interval "900s" "scripts/weather_day")
+(defpoll weatherText :interval "900s" "scripts/weatherText")
+(defpoll temperature_C :interval "120s" "scripts/temperature")
+(defvar tasklist '["discord", "code-url-handler"]')
+(defvar startmenu-reveal false)
+(defvar searchmenu-reveal false)
+(defvar search-results '[]')
+(defvar search-results-kbselection '')
+(defvar selection '[]')
+(defvar active-selection '')
+(defvar search-results-active-selection '')
+(defvar search-results-first-entry true)
+(defvar selection-info-menu '')
+(defvar searchinfo-kbselection '')
+
+;; ── dashboard polls ─────────────────────────────────────────────────────────
+(defpoll taskbar-state :interval "1s" "scripts/dashboard/taskbar-state")
+(defpoll recent-apps  :interval "3s" "scripts/dashboard/recent-apps")
+;; insta-dms is updated directly by the insta-daemon via eww update
+(defvar insta-dms '[]')
+(defpoll music-title  :interval "1s"  "scripts/dashboard/music-title")
+(defpoll music-artist :interval "1s"  "scripts/dashboard/music-artist")
+(defpoll music-status :interval "1s"  "scripts/dashboard/music-status")
+(defpoll music-art    :interval "2s"  "scripts/dashboard/music-art")
+(defpoll volume       :interval "1s"  "scripts/dashboard/volume")
+(defpoll ram-usage    :interval "5s"  "scripts/dashboard/ram")
+(defpoll cpu-usage    :interval "3s"  "scripts/dashboard/cpu")
+(defpoll disk-usage   :interval "30s" "scripts/dashboard/disk")
+(defpoll disk-avail   :interval "30s" "scripts/dashboard/disk-avail")
+(defpoll net-speed    :interval "3s"  "scripts/dashboard/net-speed")
+(defpoll music-pos    :interval "1s"  "scripts/dashboard/music-position")
+(defpoll music-len    :interval "1s"  "scripts/dashboard/music-length")
+(defpoll music-pos-fmt :interval "1s" "scripts/dashboard/music-position-fmt")
+(defpoll music-len-fmt :interval "1s" "scripts/dashboard/music-length-fmt")
+
+
+(defwindow bartest
+  :monitor "0"
+  :geometry (geometry :x "0px"
+    :y "0px"
+    :width "1920px"
+    :height "35px"
+  :anchor "center bottom")
+  :stacking "fg"
+  :reserve (struts    :distance "30px"    :side "bottom")
+  :exclusive true
+  :wm-ignore false
+  (bar)
+)
+
+(defwidget bar[]
+  (box :class "bar" :halign "fill" :valign "fill"
+    (centerbox
+      (weather)
+      (center)
+      (box)
+    )
+  )
+)
+
+(defwidget weather []
+  (box :valign "center" :halign "start"
+    (eventbox :class "weatherButton"
+      (box :class "weatherButtonBox" :space-evenly false :halign "start"
+        (image :path "images/icons/weather/${weather}.png")
+        (box :class "weatherBox" :orientation "vertical" :space-evenly false :valign "start" :halign "start"
+          (label :class "temperatureText" :text "${temperature_C}℃" :halign "start")
+          (label :class "weatherText" :text "${weatherText}" :halign "start")
+        )
+      )
+    )
+  )
+)
+
+(defwidget ArchButton []
+  (eventbox :class "${startmenu-reveal ? 'arch-button-eventbox-active' : 'arch-button-eventbox'}" :onclick "~/.config/eww/scripts/toggle-startmenu"
+    (box :class "arch-button-box" :space-evenly false
+      (image :path "images/icons/system/archlinux.svg"
+        :class "arch-icon"
+        :image-height "15"
+        :image-width "15"
+      )
+    )
+  )
+)
+
+
+(defwidget taskbar []
+  (box :space-evenly false
+    :halign "center" :valign "center"
+    :spacing "4"
+    (for entry in tasklist
+      (eventbox :class "taskbar-btn-${(taskbar-state ?: true) == true ? 'closed' : (taskbar-state[entry] ?: 'closed')}" :hexpand true :vexpand true :onclick "echo 'click ${entry}' > /tmp/eww-taskbar"
+        (box :class "taskbar-button-box"
+          (image  :path "images/icons/${(taskbar-state ?: true) == true ? 'apps' : (taskbar-state[entry] ?: 'closed') == 'closed' ? 'apps-pink' : 'apps'}/${entry}.svg"
+            :class "taskbar-icons"
+            :image-height "15"
+            :image-width "15"
+          )
+        )
+      )
+    )
+  )
+)
+
+(defwidget startmenu []
+  (box :class "startmenu-bg"
+    :valign "end" :halign "center" :space-evenly false
+    :orientation "v"
+    (revealer :transition "slideup" :reveal {startmenu-reveal} :duration "200ms"
+      (box :width 900 :height 790 (box :halign "center" :valign "end" :orientation "v" :space-evenly false
+          (box :class "startmenu-fg" :height 608 :width 772
+            :halign "start" :valign "end" :orientation "v" :space-evenly false :vexpand false
+            (box :class "power-menu" :spacing 20 :halign "start" :valign "start" :space-evenly false :height 35 :width 768
+              (eventbox :class "power-eventbox" :onclick "systemctl suspend" (label :text "Sleep" :class "power-options"))
+              (eventbox :class "power-eventbox" :onclick "systemctl hibernate" (label :text "Hibernate" :class "power-options"))
+              (eventbox :class "power-eventbox" :onclick "loginctl lock-session" (label :text "Lock" :class "power-options"))
+              (eventbox :class "power-eventbox" :onclick "systemctl poweroff" (label :text "Shutdown" :class "power-options"))
+              (eventbox :class "power-eventbox" :onclick "loginctl terminate-user $USER" (label :text "Logout" :class "power-options"))
+            )
+            (box :class "powermenu-padding")
+            (box :orientation "h" :space-evenly false
+              (revealer :transition "slideright" :reveal {!searchmenu-reveal} :duration "350ms"
+                (dashboard)
+              )
+              (revealer :transition "slideleft" :reveal {searchmenu-reveal} :duration "350ms"
+                (box :orientation "v" :halign "start" :space-evenly false :class "searchmenu-bg" :width 768
+                  (box :orientation "h" :space-evenly false
+                    (searchresults)
+                    (box :class "searchresults-border-right" :width 20)
+                    (searchinfo)
+                  )
+                )
+              )
+            )
+          )
+          (box :class "startmenu-padding" :height 36 :width 768)
+        ))
+    )
+  )
+)
+
+;; ── dashboard ────────────────────────────────────────────────────────────────
+
+(defwidget dashboard []
+  (box :orientation "h" :space-evenly false :width 768 :height 538 :halign "start"
+    ;; left column: clock, player, stats
+    (box :orientation "v" :space-evenly false :spacing 10 :halign "start" :class "dash-left-col"
+      ;; clock card
+      (box :orientation "v" :space-evenly false :class "dash-card dash-clock-section"
+        (label :text {formattime(EWW_TIME, "%H:%M")} :class "dash-clock" :halign "start" :xalign 0)
+        (label :text {formattime(EWW_TIME, "%A")} :class "dash-day" :halign "start" :xalign 0)
+        (label :text {formattime(EWW_TIME, "%d %B %Y")} :class "dash-date" :halign "start" :xalign 0)
+        (box :orientation "h" :space-evenly false :spacing 8 :halign "start" :class "dash-weather"
+          (image :path "images/icons/weather/${weather}.png" :image-width 20 :image-height 20)
+          (label :text "${temperature_C}℃" :class "dash-temp" :xalign 0)
+          (label :text weatherText :class "dash-weather-text" :xalign 0)
+        )
+      )
+      ;; player card
+      (box :class "dash-card" :vexpand true
+        (box :orientation "v" :space-evenly false :spacing 8 :valign "center"
+        (box :orientation "h" :space-evenly false
+          (image :path {music-art != "" ? music-art : "images/icons/system/archlinux.svg"}
+            :class "dash-art" :image-width 90 :image-height 90)
+          (box :orientation "v" :valign "center" :space-evenly false :spacing 4 :class "dash-music-info"
+            (label :text {music-title != "" ? music-title : "Nothing"} :class "dash-music-title" :halign "start" :limit-width 22)
+            (label :text {music-artist != "" ? music-artist : "—"} :class "dash-music-artist" :halign "start" :limit-width 22)
+          )
+        )
+        ;; seek bar + timestamps
+        (box :orientation "h" :space-evenly false :spacing 8
+          (label :text music-pos-fmt :class "dash-time-label")
+          (scale :class "dash-seek-bar" :min 0 :max {music-len != "" ? music-len : 1} :value {music-pos != "" ? music-pos : 0}
+            :orientation "h" :hexpand true :active false)
+          (label :text music-len-fmt :class "dash-time-label")
+        )
+        ;; controls
+        (box :orientation "h" :spacing 12 :halign "center" :space-evenly false :class "dash-controls"
+          (eventbox :onclick "playerctl previous" :class "dash-ctrl-btn"
+            (label :text "|<" :class "dash-ctrl-text"))
+          (eventbox :onclick "playerctl play-pause" :class "dash-ctrl-btn"
+            (label :text {music-status == "Playing" ? "||" : "|>"} :class "dash-ctrl-text"))
+          (eventbox :onclick "playerctl next" :class "dash-ctrl-btn"
+            (label :text ">|" :class "dash-ctrl-text"))
+        )
+      ))
+      ;; stats + recent row
+      (box :orientation "h" :space-evenly false :spacing 10 :hexpand true :height 160
+        (box :class "dash-card" :width 110 :height 160
+          (box :orientation "v" :space-evenly false :halign "start" :valign "center" :spacing 6
+            (label :text "NET" :class "dash-stat-label" :halign "start" :xalign 0)
+            (label :text "down" :class "dash-net-label" :halign "start" :xalign 0)
+            (label :text "${replace(net-speed, '\\|.*', '')}" :class "dash-net-down" :halign "start" :xalign 0)
+            (label :text "up" :class "dash-net-label" :halign "start" :xalign 0)
+            (label :text "${replace(net-speed, '.*\\|', '')}" :class "dash-net-up" :halign "start" :xalign 0)
+          )
+        )
+        (box :class "dash-card" :width 110 :height 160
+          (box :orientation "v" :space-evenly false :halign "center" :valign "center"
+            (circular-progress :value cpu-usage :thickness 6 :class "dash-cpu-ring" :width 60 :height 60 :start-at 75
+              (label :text "${cpu-usage}%" :class "dash-stat-value"))
+            (label :text "CPU" :class "dash-stat-label")
+          )
+        )
+        (box :class "dash-card" :width 110 :height 160
+          (box :orientation "v" :space-evenly false :halign "center" :valign "center"
+            (circular-progress :value ram-usage :thickness 6 :class "dash-ram-ring" :width 60 :height 60 :start-at 75
+              (label :text "${ram-usage}%" :class "dash-stat-value"))
+            (label :text "RAM" :class "dash-stat-label")
+          )
+        )
+        ;; recent apps
+        (box :class "dash-card" :width 110 :height 160
+          (box :orientation "v" :space-evenly false :halign "start" :valign "center"
+            (label :text "RECENT" :class "dash-section-title" :halign "start" :xalign 0)
+            (for entry in recent-apps
+              (eventbox :class "dash-recent-btn" :onclick "~/.config/eww/scripts/toggle-startmenu && echo 'click ${entry}' > /tmp/eww-taskbar"
+                (label :text entry :class "dash-recent-text" :halign "start" :xalign 0 :limit-width 10)
+              )
+            )
+          )
+        )
+      )
+      ;; disk usage bar
+      (eventbox :onclick "~/.config/eww/scripts/toggle-startmenu && setsid nemo &>/dev/null &" :class "dash-disk-btn"
+        (box :orientation "h" :space-evenly false :class "dash-card dash-disk-bar" :hexpand true :spacing 10
+          (label :text "DISK" :class "dash-disk-label" :xalign 0)
+          (progress :class "dash-disk-progress" :value disk-usage :orientation "h" :hexpand true :valign "center")
+          (label :text "${disk-avail} free" :class "dash-disk-text" :xalign 0)
+        )
+      )
+    )
+    ;; right column: links + DMs
+    (box :orientation "v" :space-evenly false :spacing 10 :class "dash-right-pad" :vexpand true :hexpand true
+      (box :orientation "v" :space-evenly false :class "dash-card"
+        (label :text "LINKS" :class "dash-section-title" :halign "start" :xalign 0)
+        (eventbox :class "dash-recent-btn" :onclick "~/.config/eww/scripts/toggle-startmenu && xdg-open https://github.com/YOUR_USERNAME"
+          (label :text "GitHub" :class "dash-link-text" :halign "start" :xalign 0))
+        (eventbox :class "dash-recent-btn" :onclick "~/.config/eww/scripts/toggle-startmenu && xdg-open https://instagram.com/YOUR_USERNAME"
+          (label :text "Instagram" :class "dash-link-text" :halign "start" :xalign 0))
+        (eventbox :class "dash-recent-btn" :onclick "~/.config/eww/scripts/toggle-startmenu && xdg-open https://linkedin.com/in/YOUR_USERNAME"
+          (label :text "LinkedIn" :class "dash-link-text" :halign "start" :xalign 0))
+        (eventbox :class "dash-recent-btn" :onclick "~/.config/eww/scripts/toggle-startmenu && xdg-open https://instagram.com/direct/YOUR_THREAD_ID && echo 'click brave-browser' > /tmp/eww-taskbar"
+          (label :text "Partner <3" :class "dash-link-gf" :halign "start" :xalign 0))
+      )
+      (eventbox :onclick "~/.config/eww/scripts/toggle-startmenu && xdg-open https://instagram.com/direct/YOUR_THREAD_ID && echo 'click brave-browser' > /tmp/eww-taskbar" :onrightclick "kill $(cat /tmp/eww-insta-daemon.pid 2>/dev/null) 2>/dev/null; sleep 1; FORCE_COOKIE_INJECT=1 ~/.config/eww/scripts/dashboard/insta-daemon 2>/tmp/insta-daemon.log &" :class "dash-dm-card-btn" :vexpand true
+        (box :orientation "v" :space-evenly false :class "dash-card" :vexpand true
+          (label :text "Partner <3" :class "dash-link-gf" :halign "start" :xalign 0)
+          (for entry in insta-dms
+            (box :orientation "h" :space-evenly false :halign "start"
+              (label :text "${matches(entry, '^<her>.*') ? '<her>' : matches(entry, '^<you>.*') ? '<you>' : ''}"
+                :class "${matches(entry, '^<her>.*') ? 'dash-dm-prefix-her' : 'dash-dm-prefix-you'}"
+                :visible {matches(entry, '^<her>.*') || matches(entry, '^<you>.*')})
+              (label :text "${replace(replace(entry, '^<her> ', ''), '^<you> ', '')}"
+                :class "dash-dm-text" :halign "start" :xalign 0)
+            )
+          )
+        )
+      )
+    )
+  )
+)
+
+(defwidget searchbar []
+  (box :class "searchbar-bg2"
+    (box :class "searchbar-bg"
+      :valign "end" :halign "center" :space-evenly false :width 772 :height 30
+      (label :text "Search :" :class "search-box-text")
+      (input :class "search-initial" :halign "center" :width 608 :onchange "perl scripts/cacheApps search \"{}\"")
+    )
+  )
+)
+
+(defwidget tabulation []
+  (eventbox :class "tabulation-eventbox"
+    (label :text "⇥" :class "tabulation")
+  )
+)
+
+(defwidget up-arrow []
+  (eventbox :class "arrow-eventbox"
+    (label :text "↑" :class "arrow")
+  )
+)
+
+(defwidget down-arrow []
+  (eventbox :class "arrow-eventbox"
+    (label :text "↓" :class "arrow")
+  )
+)
+
+(defwidget return []
+  (eventbox :class "return-eventbox"
+    (label :text "↵" :class "return")
+  )
+)
+
+(defwidget searchinfo []
+  (box :class "search-info-bg" :valign "end" :halign "start" :space-evenly false :orientation "v" :height 538 :width 480
+    (box :orientation "v" :space-evenly false :height 400 :class "search-legend"
+      (box :orientation "h" :halign "start" :space-evenly false
+        (box :space-evenly false :orientation "v"
+          (label :text "Submenu Options:" :class "Dialog-searchresults" :halign "start")
+        )
+      )
+      (for entry in selection-info-menu
+        (revealer :transition "crossfade" :duration "150ms" :reveal "${active-selection == 'selection-info-menu' ? true : false}"
+          (box :space-evenly false
+            (box :width 30)
+            (eventbox :width 228 :height 25 :onclick "echo 'click-info ${entry}' > /tmp/eww-kbselection" :class "${entry == "" || (searchinfo-kbselection ?: true) == true ? "non-selected" : "${(searchinfo-kbselection["${entry}"] ?: true) == true ? "non-selected" : "${searchinfo-kbselection["${entry}"]}"}" }"
+              (label :text "${entry}" :class "${entry == "" || (searchinfo-kbselection ?: true) == true ? "non-selected" : "${(searchinfo-kbselection["${entry}"] ?: true) == true ? "non-selected" : "${searchinfo-kbselection["${entry}"]}"}" }" :halign "start" :wrap true :limit-width 25)
+            )
+          )
+        )
+      )
+    )
+    (box :orientation "v" :space-evenly false :class "legend-box" :spacing 5
+      (box :orientation "h" :space-evenly false
+        (up-arrow)
+        (label :text "Move Up" :class "legend-dialog")
+      )
+      (box :orientation "h" :space-evenly false
+        (down-arrow)
+        (label :text "Move Down" :class "legend-dialog")
+      )
+      (box :orientation "h" :space-evenly false
+        (tabulation)
+        (label :text "Show Submenu Options" :class "legend-dialog")
+      )
+      (box :orientation "h" :space-evenly false
+        (return)
+        (label :text "Run the Highlighted Option" :class "legend-dialog")
+      )
+    )
+  )
+)
+
+(defwidget searchresults []
+  (box :class "search-bg" :valign "end" :halign "start" :space-evenly false :orientation "v" :height 538 :width 258
+    (box :orientation "v" :space-evenly false
+      (label :text "Search Results:" :halign "start" :class "Dialog-searchresults")
+      (for entry in search-results
+        (box :space-evenly false
+          (box :width 30)
+          (eventbox :width 228 :height 25 :onclick "echo 'click-result ${entry}' > /tmp/eww-kbselection" :class "${entry == "" || (search-results-kbselection ?: true) == true ? "non-selected" : "${(search-results-kbselection["${entry}"] ?: true) == true ? "non-selected" : "${search-results-kbselection["${entry}"]}"}" }"
+            (label :text "${entry}" :class "${entry == "" || (search-results-kbselection ?: true) == true ? "non-selected" : "${(search-results-kbselection["${entry}"] ?: true) == true ? "non-selected" : "${search-results-kbselection["${entry}"]}"}" }" :halign "start" :valign "center" :wrap true :limit-width 25)
+          )
+        )
+      )
+    )
+  )
+)
+
+(defwidget center []
+  (box :halign "center" :valign "center" :space-evenly false
+    :spacing "4"
+    (ArchButton)
+    (taskbar)
+  )
+)
+
+(defwindow startwindow
+  :monitor "0"
+  :stacking "overlay"
+  :namespace "eww"
+  :geometry (geometry
+    :height "0px"
+    :width "0px"
+    :anchor "bottom center"
+  )
+  (startmenu)
+)
+
+(defwindow dismiss-layer
+  :monitor "0"
+  :stacking "fg"
+  :geometry (geometry
+    :width "1920px"
+    :height "1080px"
+    :anchor "center center"
+  )
+  (eventbox :onclick "~/.config/eww/scripts/toggle-startmenu" :onrightclick "~/.config/eww/scripts/toggle-startmenu"
+    (box :class "dismiss-bg")
+  )
+)
+
+(defwindow searchbar
+  :monitor "0"
+  :stacking "fg"
+  :focusable true
+  :geometry (geometry
+    :height "0px"
+    :width "768"
+    :y "3"
+    :anchor "bottom center"
+  )
+  (searchbar)
+)
+
+(defwindow windowList(appid)
+)

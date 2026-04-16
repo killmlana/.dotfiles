@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo $(gdbus call --session --dest org.wayland.compositor --object-path /org/wayland/compositor --method org.wayland.compositor.query_view_title $1 | awk -F\' '{print $2}')
