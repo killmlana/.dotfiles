@@ -1,18 +1,50 @@
-# eww-dotfiles
+<h1 align="center">.dotfiles</h1>
 
-Custom [Eww](https://github.com/elkowar/eww) widgets for Wayland — a full desktop shell with a taskbar, start menu, app launcher, dashboard, and Instagram DM integration. Built for [Wayfire](https://wayfire.org/) with Catppuccin Mocha theming.
+<p align="center">
+  <img src="https://img.shields.io/badge/Arch-Linux-1793D1?logo=archlinux&logoColor=white" />
+  <img src="https://img.shields.io/badge/Wayfire-Compositor-f38ba8" />
+  <img src="https://img.shields.io/badge/Eww-Widgets-a6e3a1?logo=gtk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Catppuccin-Mocha-f5e0dc?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzExMTExYiIvPjwvc3ZnPg==" />
+  <img src="https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white" />
+  <img src="https://img.shields.io/badge/License-MIT-89b4fa" />
+</p>
 
-![](screenshots/desktop.png)
+<p align="center">
+  Custom <a href="https://github.com/elkowar/eww">Eww</a> widgets for Wayland — a full desktop shell with a taskbar, start menu, app launcher, dashboard, and Instagram DM integration. Built for <a href="https://wayfire.org/">Wayfire</a> with Catppuccin Mocha theming.
+</p>
 
-![](screenshots/startmenu.png)
+---
 
-![](screenshots/search.png)
+### Desktop
 
-![](screenshots/busy.png)
+<img src="screenshots/desktop.png" />
 
-![](screenshots/neofetch.png)
+### Dashboard
 
-![](screenshots/wobbly.png)
+<img src="screenshots/startmenu.png" />
+
+### App Search
+
+<img src="screenshots/search.png" />
+
+### In Use
+
+<img src="screenshots/busy.png" />
+
+<details>
+<summary>More screenshots</summary>
+
+### Neofetch
+
+<img src="screenshots/neofetch.png" />
+
+### Wobbly Windows
+
+<img src="screenshots/wobbly.png" />
+
+</details>
+
+---
 
 ## Features
 
@@ -21,6 +53,74 @@ Custom [Eww](https://github.com/elkowar/eww) widgets for Wayland — a full desk
 - Dashboard with clock, weather, music player controls (playerctl), CPU/RAM/disk/network stats, recent apps, quick links, and Instagram DMs
 - Wayland-native app launcher (`wl-launch`) with `xdg-activation-v1` startup notification cursor
 - Pacman hook to auto-refresh the app cache on install/remove
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph Eww Widgets
+        BAR[Bottom Bar]
+        SM[Start Menu]
+        DASH[Dashboard]
+        SB[Search Bar]
+    end
+
+    subgraph Scripts
+        TS[toggle-startmenu]
+        CA[cacheApps<br/><i>Perl</i>]
+        KBD[kbselection-daemon<br/><i>C++ FIFO</i>]
+        TBD[taskbar-daemon<br/><i>Python</i>]
+        TBC[taskbar-ctl<br/><i>C++</i>]
+        WL[wl-launch<br/><i>C / Wayland</i>]
+    end
+
+    subgraph Dashboard Scripts
+        MUS[Music<br/><i>playerctl</i>]
+        SYS[System Stats<br/><i>CPU/RAM/Disk/Net</i>]
+        INSTA[Instagram DMs<br/><i>CDP</i>]
+        RECENT[Recent Apps]
+    end
+
+    subgraph External
+        WF[Wayfire IPC]
+        DESK[Desktop Files<br/><i>/usr/share/applications</i>]
+        WEATHER[Weather API<br/><i>RapidAPI</i>]
+        BRAVE[Brave CDP]
+    end
+
+    BAR --> TS
+    BAR --> TBC
+    SM --> SB
+    SB --> CA
+    CA --> DESK
+    CA --> KBD
+    KBD --> SM
+    TBC --> WF
+    TBD --> WF
+    CA --> WL
+    DASH --> MUS
+    DASH --> SYS
+    DASH --> INSTA
+    DASH --> RECENT
+    INSTA --> BRAVE
+    BAR --> WEATHER
+    RECENT --> WF
+
+    style BAR fill:#f38ba8,color:#11111b
+    style SM fill:#f38ba8,color:#11111b
+    style DASH fill:#f38ba8,color:#11111b
+    style SB fill:#f38ba8,color:#11111b
+    style KBD fill:#a6e3a1,color:#11111b
+    style TBC fill:#a6e3a1,color:#11111b
+    style WL fill:#a6e3a1,color:#11111b
+    style CA fill:#89b4fa,color:#11111b
+    style TBD fill:#89b4fa,color:#11111b
+    style TS fill:#89b4fa,color:#11111b
+    style MUS fill:#fab387,color:#11111b
+    style SYS fill:#fab387,color:#11111b
+    style INSTA fill:#fab387,color:#11111b
+    style RECENT fill:#fab387,color:#11111b
+```
 
 ## Dependencies
 
@@ -41,8 +141,8 @@ Custom [Eww](https://github.com/elkowar/eww) widgets for Wayland — a full desk
 ## Install
 
 ```bash
-git clone https://github.com/killmlana/eww-dotfiles.git
-cd eww-dotfiles
+git clone https://github.com/killmlana/.dotfiles.git
+cd .dotfiles
 ./install.sh
 ```
 
@@ -91,40 +191,50 @@ Edit the `Exec` path in the hook to your install location.
 
 ## Project Structure
 
-```
-eww-dotfiles/
-├── eww.yuck                          # Widget definitions
-├── eww.scss                          # Styling (Catppuccin Mocha)
-├── Makefile
-├── install.sh
-├── images/icons/
-│   ├── apps/                         # Taskbar icons (normal)
-│   ├── apps-pink/                    # Taskbar icons (inactive)
-│   ├── system/                       # Arch logo, decorations
-│   └── weather/                      # Weather condition icons
-└── scripts/
-    ├── toggle-startmenu              # Open/close start menu
-    ├── cacheApps                     # Perl app search engine
-    ├── selection-info.cpp            # Desktop file → JSON cache
-    ├── kbselection-daemon.cpp        # Keyboard navigation daemon (FIFO)
-    ├── kbselection.cpp               # Legacy keyboard nav helper
-    ├── search-result-menu-init.cpp   # Init search result panel
-    ├── search-info-menu-init.cpp     # Init submenu panel
-    ├── active-selection-info-menu-init.cpp
-    ├── taskbar-daemon                # Python taskbar state manager
-    ├── taskbar-ctl.cpp               # Taskbar click handler
-    ├── wl-launch.c                   # Wayland app launcher
-    ├── refresh-app-cache             # Rebuild app cache
-    ├── eww-app-cache.hook            # Pacman hook
-    └── dashboard/
-        ├── taskbar-state             # Poll window states
-        ├── recent-apps               # Recently focused apps
-        ├── cpu, ram, disk, disk-avail, net-speed, volume
-        ├── music-title, music-artist, music-status, music-art
-        ├── music-position, music-length, music-position-fmt, music-length-fmt
-        ├── insta-daemon              # Instagram DM poller (CDP)
-        ├── insta-cdp, insta-dms, insta-unread, insta-native-host
-        └── ...
+```mermaid
+graph LR
+    ROOT[".dotfiles/"]
+
+    ROOT --> EY["eww.yuck"]
+    ROOT --> ES["eww.scss"]
+    ROOT --> MK["Makefile"]
+    ROOT --> IN["install.sh"]
+    ROOT --> IMG["images/icons/"]
+    ROOT --> SC["scripts/"]
+    ROOT --> SS["screenshots/"]
+
+    IMG --> APPS["apps/"]
+    IMG --> APPSP["apps-pink/"]
+    IMG --> SYS2["system/"]
+    IMG --> WEATH["weather/"]
+
+    SC --> TOG["toggle-startmenu"]
+    SC --> CACHE["cacheApps"]
+    SC --> SEL["selection-info.cpp"]
+    SC --> KBD2["kbselection-daemon.cpp"]
+    SC --> KB["kbselection.cpp"]
+    SC --> SRM["search-result-menu-init.cpp"]
+    SC --> SIM["search-info-menu-init.cpp"]
+    SC --> ASM["active-selection-info-menu-init.cpp"]
+    SC --> TBD2["taskbar-daemon"]
+    SC --> TBC2["taskbar-ctl.cpp"]
+    SC --> WLC["wl-launch.c"]
+    SC --> REF["refresh-app-cache"]
+    SC --> HOOK["eww-app-cache.hook"]
+    SC --> DSH["dashboard/"]
+
+    DSH --> TBST["taskbar-state"]
+    DSH --> RA["recent-apps"]
+    DSH --> STATS["cpu, ram, disk, net-speed, volume"]
+    DSH --> MUSC["music-*"]
+    DSH --> INSTD["insta-daemon, insta-cdp, insta-dms"]
+
+    style ROOT fill:#f38ba8,color:#11111b
+    style EY fill:#11111b,color:#f5e0dc,stroke:#f38ba8
+    style ES fill:#11111b,color:#f5e0dc,stroke:#f38ba8
+    style IMG fill:#11111b,color:#f5e0dc,stroke:#f38ba8
+    style SC fill:#11111b,color:#f5e0dc,stroke:#f38ba8
+    style DSH fill:#11111b,color:#f5e0dc,stroke:#f38ba8
 ```
 
 ## Tech Stack
@@ -139,3 +249,7 @@ eww-dotfiles/
 | App launcher | C + Wayland `xdg-activation-v1` |
 | DM integration | Python + Chrome DevTools Protocol |
 | Theme | Catppuccin Mocha |
+
+## License
+
+MIT
